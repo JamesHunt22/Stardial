@@ -66,6 +66,9 @@ function conflictError(code: ErrorCode, message: string): AppError {
  *  - Same key while the original request is still in flight: rejected with
  *    a stable 409 so a concurrent retry can't race the first attempt.
  *  - Key TTL (default 24h, `IDEMPOTENCY_KEY_TTL_MS`) expires: treated as new.
+ *
+ * Scope is `method + baseUrl + matched route path`, so the same key used on
+ * different endpoints never collides.
  */
 export function idempotencyMiddleware(store: IdempotencyStore = defaultStore): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {

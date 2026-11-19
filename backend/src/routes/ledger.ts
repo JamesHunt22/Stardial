@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 import { getLedgerBlocks } from "../services/ledger.service.js";
+import { idempotencyMiddleware } from "../middleware/idempotency.js";
 
 export const ledgerRouter = Router();
 
@@ -9,6 +10,8 @@ const ledgerBlocksQuerySchema = z.object({
   cursor: z.string().uuid().optional(),
 });
 
+// Mutation-safe read endpoints are unaffected; idempotency is applied to any
+// future write routes on this router via `idempotencyMiddleware()`.
 ledgerRouter.get("/blocks", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { limit, cursor } = ledgerBlocksQuerySchema.parse(req.query);

@@ -277,6 +277,70 @@ transactionsRouter.get("/export", authJwtMiddleware, async (req: Request, res: R
 });
 
 /** A receipt is generated on demand from the indexed transaction, never from request-supplied fields. */
+/**
+ * Idempotency guard for mutation-style requests.
+ *
+ * Clients may send an `Idempotency-Key` header. If the same key is replayed
+ * for the same authenticated wallet and route, the original response is
+ * returned instead of re-executing the operation, preventing duplicate
+ * charges or state changes on client retries.
+ */
+const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+const IDEMPOTENCY_MAX_KEY_LENGTH = 255;
+const idempotencyStore = new Map<
+  string,
+  { status: number; body: unknown; expiresAt: number }
+>();
+
+function pruneIdempotencyStore(now: number): void {
+  for (const [key, entry] of idempotencyStore) {
+    if (entry.expiresAt <= now) idempotencyStore.delete(key);
+  }
+}
+
+export function getIdempotencyKey(req: Request): string | undefined {
+  const raw = req.header("Idempotency-Key");
+  if (raw === undefined) return undefined;
+  const key = raw.trim();
+  if (key.length === 0 || key.length > IDEMPOTENCY_MAX_KEY_LENGTH) {
+    throw new AppError(
+      ErrorType.VALIDATION,
+      ErrorCode.VALIDATION_ERROR,
+      "Invalid Idempotency-Key header.",
+    );
+  }
+  return key;
+}
+
+/**
+ * Returns a cached response for a replayed idempotency key, or undefined if
+ * the key is new. Scoped per wallet and route so keys cannot collide across
+ * callers.
+ */
+export function lookupIdempotentResponse(
+  scope: string,
+  key: string,
+): { status: number; body: unknown } | undefined {
+  const now = Date.now();
+  pruneIdempotencyStore(now);
+  const entry = idempotencyStore.get(`${scope}:${key}`);
+  if (!entry || entry.expiresAt <= now) return undefined;
+  return { status: entry.status, body: entry.body };
+}
+
+export function storeIdempotentResponse(
+  scope: string,
+  key: string,
+  status: number,
+  body: unknown,
+): void {
+  idempotencyStore.set(`${scope}:${key}`, {
+    status,
+    body,
+    expiresAt: Date.now() + IDEMPOTENCY_TTL_MS,
+  });
+}
+
 transactionsRouter.get("/receipt/:txHash", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const txHashParam = req.params.txHash;
