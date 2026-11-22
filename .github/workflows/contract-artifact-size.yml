@@ -36,11 +36,30 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Build contracts
+        shell: bash
         run: |
-          cargo build \
-            --workspace \
-            --release \
-            --target wasm32-unknown-unknown
+          set -euo pipefail
+
+          mapfile -t manifests < <(
+            find contracts \
+              -type f \
+              -name Cargo.toml \
+              -print
+          )
+
+          if [ "${#manifests[@]}" -eq 0 ]; then
+            echo "::error::No Cargo.toml files were found under contracts/."
+            exit 1
+          fi
+
+          for manifest in "${manifests[@]}"; do
+            dir="$(dirname "$manifest")"
+            echo "Building contract crate in ${dir}"
+            cargo build \
+              --manifest-path "$manifest" \
+              --release \
+              --target wasm32-unknown-unknown
+          done
 
       - name: Check contract artifact sizes
         shell: bash

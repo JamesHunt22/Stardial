@@ -17,9 +17,7 @@ use std::string::String as StdString;
 
 use soroban_sdk::{testutils::Address as _, token, vec, Address, Env, String, Symbol, Vec};
 
-use crate::{
-    Collaborator, StardialContract, StardialContractClient, DEFAULT_MAX_COLLABORATORS,
-};
+use crate::{Collaborator, StardialContract, StardialContractClient, DEFAULT_MAX_COLLABORATORS};
 
 /// Snapshot of Soroban execution budget metrics.
 #[derive(Clone, Copy, Debug)]
@@ -320,39 +318,4 @@ fn test_cost_comparison_matrix_and_regression_guard() {
     // in-process (see test_distribute_cost_scaling_benchmark).
     for &count in &[2, 10, 50] {
         // Measure deposit
-        let (client, project_id, _, token, collab_addrs) = setup_benchmark_project(&env, count, 0);
-
-        let depositor = Address::generate(&env);
-        let token_client = token::StellarAssetClient::new(&env, &token);
-        token_client.mint(&depositor, &deposit_amount);
-
-        let (_, deposit_cost) = measure_cost(&env, || {
-            client.deposit(&project_id, &depositor, &deposit_amount)
-        });
-
-        // Measure claim for 1 collaborator
-        let target_collab = &collab_addrs[0];
-        let (_, claim_cost) = measure_cost(&env, || client.claim(&project_id, target_collab));
-
-        // Measure distribute for remaining balance
-        let (_, distribute_cost) = measure_cost(&env, || client.distribute(&project_id));
-
-        println!(
-            "Deposit            | {:<12} | {:<16} | {:<14}",
-            count, deposit_cost.cpu_instructions, deposit_cost.memory_bytes
-        );
-        println!(
-            "Claim (1 collab)   | {:<12} | {:<16} | {:<14}",
-            count, claim_cost.cpu_instructions, claim_cost.memory_bytes
-        );
-        println!(
-            "Distribute (All)   | {:<12} | {:<16} | {:<14}",
-            count, distribute_cost.cpu_instructions, distribute_cost.memory_bytes
-        );
-        println!("---------------------------------------------------------------------");
-
-        // Verify distribute cost > claim cost when collaborators >= 2
-        assert!(distribute_cost.cpu_instructions >= claim_cost.cpu_instructions);
-    }
-    println!("=====================================================================\n");
-}
+        let (client, project_id, _, tok

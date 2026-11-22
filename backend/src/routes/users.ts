@@ -194,7 +194,6 @@ usersRouter.post("/login", async (req: Request, res: Response, next: NextFunctio
       isActive: user.isActive,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
-      token,
       ...serializeUser(user),
       token: signToken(user.walletAddress, sessionVersion),
       ...(refreshToken ? { refreshToken } : {}),
